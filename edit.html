@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pascal's Triangle Drag and Drop</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background-color: #f0f0f0;
+      margin: 0;
+      padding: 20px;
+    }
+    h2 { margin-bottom: 10px; }
+    #timer {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    .triangle {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      margin-bottom: 30px;
+    }
+    .row { display: flex; gap: 5px; }
+    .cell {
+      width: 40px;
+      height: 40px;
+      background-color: white;
+      border: 2px solid #aaa;
+      border-radius: 5px;
+      text-align: center;
+      line-height: 40px;
+      font-size: 16px;
+      font-weight: bold;
+    }
+    #numbers {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+    .number {
+      width: 40px;
+      height: 40px;
+      background-color: lightgreen;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: grab;
+      font-weight: bold;
+      transition: all 0.3s ease;
+    }
+    .number.dragging { opacity: 0.5; }
+    .count-label {
+      font-size: 12px;
+      color: #333;
+      text-align: center;
+      margin-top: 3px;
+    }
+    .number-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: lightblue;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #score {
+      font-size: 20px;
+      margin-top: 10px;
+      color: #333;
+    }
+    .animate-complete {
+      animation: flashAnimation 1s ease-out;
+    }
+    @keyframes flashAnimation {
+      0% { background-color: #f39c12; }
+      50% { background-color: #2ecc71; }
+      100% { background-color: #f39c12; }
+    }
+    #timesUpOverlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      color: white;
+      font-size: 50px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      display: none;
+      flex-direction: column;
+    }
+  </style>
+</head>
+<body>
+  <h2>Pascal's Triangle Drag and Drop</h2>
+  <div id="timer">Time left: <span id="timeLeft">03:00</span></div>
+  <div class="triangle" id="triangle"></div>
+  <div id="numbers"></div>
+  <div id="score">Score: <span id="scoreValue">0</span></div>
+  <button id="resetBtn">Reset Game</button>
+
+  <div id="timesUpOverlay">⏰ TIME'S UP!</div>
+
+  <audio id="correctSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_d734213afa.mp3?filename=correct-2-46134.mp3"></audio>
+  <audio id="wrongSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_dbb2e5efae.mp3?filename=error-2-36058.mp3"></audio>
+
+  <script>
+    const triangleContainer = document.getElementById('triangle');
+    const numbersContainer = document.getElementById('numbers');
+    const timeDisplay = document.getElementById('timeLeft');
+    const resetBtn = document.getElementById('resetBtn');
+    const correctSound = document.getElementById('correctSound');
+    const wrongSound = document.getElementById('wrongSound');
+    const scoreDisplay = document.getElementById('scoreValue');
+    const timesUpOverlay = document.getElementById('timesUpOverlay');
+
+    let timeLeft = 180;
+    let timerInterval;
+    let correctCount = 0;
+    let totalCells = 66;
+    let isTimeUp = false;
+
+    function generateTriangle(rows) {
+      triangleContainer.innerHTML = '';
+      correctCount = 0;
+      for (let r = 0; r <= rows; r++) {
+        const rowDiv = document.createElement('div');
+        rowDiv.classList.add('row');
+        for (let c = 0; c <= r; c++) {
+          const cell = document.createElement('div');
+          cell.classList.add('cell');
+          cell.dataset.expected = pascalValue(r, c);
+          cell.ondragover = e => e.preventDefault();
+          cell.ondrop = handleDrop;
+          rowDiv.appendChild(cell);
+        }
+        triangleContainer.appendChild(rowDiv);
+      }
+    }
+
+    function pascalValue(row, col) {
+      if (col === 0 || col === row) return 1;
+      let res = 1;
+      for (let i = 0; i < col; i++) {
+        res *= (row - i);
+        res /= (i + 1);
+      }
+      return res;
+    }
+
+    function generateNumbers() {
+      const counts = {
+        1: 21, 2: 1, 3: 2, 4: 2, 5: 2, 6: 3, 10: 4, 15: 2, 20: 1,
+        7: 2, 8: 2, 9: 2, 21: 2, 35: 2, 28: 2, 56: 2, 70: 1,
+        36: 2, 84: 2, 120: 2, 126: 2, 210: 2, 252: 1, 45: 2
+      };
+
+      numbersContainer.innerHTML = '';
+
+      Object.entries(counts).forEach(([value, count]) => {
+        for (let i = 0; i < count; i++) {
+          const numDiv = document.createElement('div');
+          numDiv.classList.add('number');
+          numDiv.draggable = true;
+          numDiv.textContent = value;
+          numDiv.id = `num-${value}-${Math.random()}`;
+          numDiv.ondragstart = e => {
+            if (isTimeUp) e.preventDefault();
+            else e.dataTransfer.setData('text', e.target.id);
+          };
+          numDiv.ondragend = () => numDiv.classList.remove('dragging');
+          numbersContainer.appendChild(numDiv);
+        }
+      });
+    }
+    function handleDrop(e) {
+      if (isTimeUp) return;
+
+      const id = e.dataTransfer.getData('text');
+      const dragged = document.getElementById(id);
+      if (!dragged) return;
+
+      if (e.target.dataset.expected === dragged.textContent && e.target.textContent === '') {
+        e.target.textContent = dragged.textContent;
+        dragged.parentElement.removeChild(dragged);
+        correctSound.play();
+        correctCount++;
+        scoreDisplay.textContent = correctCount;
+        e.target.classList.add('animate-complete');
+        if (correctCount === totalCells) {
+          setTimeout(() => {
+            alert("🎉 Congratulations! You've completed Pascal's Triangle!");
+            e.target.classList.remove('animate-complete');
+            clearInterval(timerInterval);
+          }, 500);
+        }
+      } else {
+        wrongSound.play();
+      }
+    }
+
+    function updateTimer() {
+      let mins = Math.floor(timeLeft / 60);
+      let secs = timeLeft % 60;
+      timeDisplay.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        isTimeUp = true;
+        timesUpOverlay.style.display = 'flex';
+      } else {
+        timeLeft--;
+      }
+    }
+
+    function startTimer() {
+      clearInterval(timerInterval);
+      timerInterval = setInterval(updateTimer, 1000);
+    }
+
+    resetBtn.onclick = () => {
+      timeLeft = 180;
+      isTimeUp = false;
+      timesUpOverlay.style.display = 'none';
+      scoreDisplay.textContent = 0;
+      generateTriangle(10);
+      generateNumbers();
+      startTimer();
+    };
+
+    resetBtn.click(); // Start game
+  </script>
+</body>
+</html>
